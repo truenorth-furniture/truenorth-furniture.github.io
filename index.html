@@ -396,7 +396,7 @@
                         <p class="text-xs text-shopify-subtext">Manage incoming orders, update production stages, and publish new items using device photos.</p>
                     </div>
                     <div class="flex gap-2 flex-wrap">
-                        <button onclick="openAddProductModal()" class="bg-shopify-darkGreen hover:bg-shopify-hover text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm">
+                        <button id="addProductBtn" onclick="openAddProductModal()" class="bg-shopify-darkGreen hover:bg-shopify-hover text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm">
                             + Add New Catalog Product
                         </button>
                         <button onclick="exportOrdersJSON()" class="bg-white border border-shopify-border text-shopify-text text-xs font-bold px-4 py-2.5 rounded-xl transition-all">
@@ -3209,6 +3209,9 @@ if (searchInputEl) searchInputEl.value = '';
                 document.getElementById('adminLockScreen').classList.add('hidden');
                 document.getElementById('adminContent').classList.remove('hidden');
                 renderAdminDashboard();
+                // Hide add-product button from staff
+                const addBtn = document.getElementById('addProductBtn');
+                if (addBtn) addBtn.style.display = (adminRole === 'admin') ? '' : 'none';
             } else {
                 document.getElementById('adminLockScreen').classList.remove('hidden');
                 document.getElementById('adminContent').classList.add('hidden');
@@ -3298,6 +3301,7 @@ if (searchInputEl) searchInputEl.value = '';
                     <td class="p-3 text-right">
                         <button onclick="printOrderSlip(${index})" class="text-shopify-darkGreen hover:text-shopify-green font-bold p-1 mr-2">Print</button>
                         <button onclick="printReceipt(${index})" class="text-amber-700 hover:text-amber-900 font-bold p-1 mr-2">Receipt</button>
+                        <button onclick="notifyClientWhatsApp(${index})" class="text-green-600 hover:text-green-800 font-bold p-1 mr-2">Notify</button>
                         ${adminRole === 'admin' ? `<button onclick="deleteOrder(${index})" class="text-red-500 hover:text-red-700 font-bold p-1">Delete</button>` : '<span class="text-shopify-subtext text-[10px]">Staff view</span>'}
                     </td>
                 `;
@@ -3397,11 +3401,27 @@ if (searchInputEl) searchInputEl.value = '';
             win.document.close();
         }
 
+        function notifyClientWhatsApp(index) {
+            const o = orders[index];
+            if (!o) return;
+            let phone = String(o.phone || '').replace(/\D/g, '');
+            if (!phone || phone.length < 9) {
+                showToast('No valid phone number for this order. Cannot open WhatsApp.');
+                return;
+            }
+            if (phone.startsWith('0')) phone = '254' + phone.slice(1);
+            if (phone.length === 9) phone = '254' + phone;
+            const msg = `Hi ${o.name || 'there'},\n\nYour True North Furniture order *${o.id}* is now: *${o.status}*.\n\nWe'll keep you updated. Thank you for choosing True North!\n\nTrack anytime with your Order ID.`;
+            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
         function updateOrderStatus(index, newStatus) {
             orders[index].status = newStatus;
             updateOrderStatusInSheet(orders[index].id, newStatus);
             renderAdminDashboard();
             showToast(`Order ${orders[index].id} status updated to: ${newStatus}`);
+            // Auto-open WhatsApp notify
+            setTimeout(() => notifyClientWhatsApp(index), 400);
         }
 
         function deleteOrder(index) {
